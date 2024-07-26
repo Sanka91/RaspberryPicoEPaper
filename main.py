@@ -279,17 +279,25 @@ if __name__ == '__main__':
     epd.imageblack.hline(0, 240, 800, 0x00)
 
     # # Colored, filled, rectangles
-    epd.imageblack.fill_rect(400, 0, 200, 240, 0x00 )
+    # epd.imageblack.fill_rect(400, 0, 200, 240, 0x00 )
     # epd.imageblack.fill_rect(0, 0, 200, 240, 0x00 )
     epd.imagered.fill_rect(300, 240, 200, 240, 0xff)
 
     arrow_up_icon = get_image_array("images/Arrow_up_new.bmp", 10, 11)
     arrow_up_buf = framebuf.FrameBuffer(arrow_up_icon, 10, 11, framebuf.MONO_HLSB)
-    epd.imageblack.blit(arrow_up_buf, 15, 350)
 
     sun_icon = get_image_array("images/Sun.bmp", 30, 30)
     sun_buf = framebuf.FrameBuffer(sun_icon, 30, 30, framebuf.MONO_HLSB)
-    epd.imageblack.blit(sun_buf, 50, 350)
+    epd.imageblack.blit(sun_buf, 113, 17)
+
+    rain_icon = get_image_array("images/Rain.bmp", 30, 30)
+    rain_buf = framebuf.FrameBuffer(rain_icon, 30, 30, framebuf.MONO_HLSB)
+    epd.imageblack.blit(rain_buf, 300, 17)
+
+    temperature_icon = get_image_array("images/Temperature.bmp", 30, 30)
+    temperature_buf = framebuf.FrameBuffer(temperature_icon, 30, 30, framebuf.MONO_HLSB)
+    epd.imageblack.blit(temperature_buf, 195, 17)
+
 
     is_connected = connect_to_internet()
     if is_connected:
@@ -304,28 +312,33 @@ if __name__ == '__main__':
 
         # Weather
         # epd.imagered.text("Updated: {}".format(today_info["last_updated"]), 275, vertical_start, 0xff)
-        epd.imagered.text("{}, {}".format(cloud_function_resp["location_name"], cloud_function_resp["location_country"]), 0,  10, 0xff)
+        epd.imagered.text("{}".format(cloud_function_resp["location_name"]), 0,  0, 0xff)
+        epd.imageblack.text("{}".format(cloud_function_resp["location_country"]), 0, 15, 0x00)
         # epd.imageblack.hline(240,  45, 300, 0x00)
 
-        vertical_shift = 0
+        vertical_shift = 5
         for forecast_day in cloud_function_resp["forecasts"]:
             date = forecast_day["date"]
+            epd.imagered.text(date, 0, 43 + vertical_shift, 0xff)
+            epd.imageblack.hline(0, 53 + vertical_shift, 90, 0x00)
 
             weather_icon_bytes = forecast_day["icon"]
             weather_icon_bytearray = bytearray(base64.b64decode(weather_icon_bytes))
             weather_icon = framebuf.FrameBuffer(weather_icon_bytearray, 40, 40, framebuf.MONO_HLSB)
-            epd.imageblack.blit(weather_icon, 40, 55 + vertical_shift)
+            epd.imageblack.blit(weather_icon, 18, 55 + vertical_shift)
 
-            epd.imageblack.text("U:{}".format(forecast_day["sunrise"]), 120, 65 + vertical_shift, 0x00 )
-            epd.imageblack.text("D:{}".format(forecast_day["sunset"]), 120, 80 + vertical_shift, 0x00 )
+            epd.imageblack.blit(arrow_up_buf, 95, 65 + vertical_shift)
 
-            epd.imageblack.text("Max:{}".format(forecast_day["maxtemp_c"]), 220, 65 + vertical_shift, 0x00 )
-            epd.imageblack.text("Min:{}".format(forecast_day["mintemp_c"]), 220, 80 + vertical_shift, 0x00 )
+            epd.imageblack.text("{}".format(forecast_day["sunrise"]), 110, 65 + vertical_shift, 0x00 )
+            epd.imageblack.text("{}".format(forecast_day["sunset"]), 110, 80 + vertical_shift, 0x00 )
 
-            epd.imageblack.text("Wind:{} kmH".format(forecast_day["maxwind_kph"]), 320, 65 + vertical_shift, 0x00)
-            epd.imageblack.text("Hum:{}%".format(forecast_day["avghumidity"]), 320, 80 + vertical_shift, 0x00)
+            epd.imageblack.text("Max:{}".format(forecast_day["maxtemp_c"]), 180, 65 + vertical_shift, 0x00 )
+            epd.imageblack.text("Min:{}".format(forecast_day["mintemp_c"]), 180, 80 + vertical_shift, 0x00 )
 
-            vertical_shift += 50
+            epd.imageblack.text("Wind:{} kmH".format(forecast_day["maxwind_kph"]), 270, 65 + vertical_shift, 0x00)
+            epd.imageblack.text("Hum:{}%".format(forecast_day["avghumidity"]), 270, 80 + vertical_shift, 0x00)
+
+            vertical_shift += 67
 
 
     epd.display()
