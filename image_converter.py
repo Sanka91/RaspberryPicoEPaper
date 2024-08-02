@@ -6,7 +6,7 @@ from PIL import Image, ImageOps
 def main():
 
     # Open as PNG and apply white background
-    image = Image.open("Temperature.png").convert("RGBA")
+    image = Image.open("/images/Arrow_up_new.bmp").convert("RGBA")
     background = Image.new("RGB", image.size, (255, 255, 255))
     background.paste(image, mask=image.split()[3])
 
@@ -20,7 +20,7 @@ def main():
     resized_image = final_bmp.resize((30, 30))
     flipped_image = ImageOps.flip(resized_image)
 
-    flipped_image.save("Temperature.bmp")
+    flipped_image.save("/images/Arrow_up_new_new.bmp")
 
 if __name__ == '__main__':
     main()

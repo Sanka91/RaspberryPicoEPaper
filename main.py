@@ -283,7 +283,10 @@ if __name__ == '__main__':
     # epd.imageblack.fill_rect(0, 0, 200, 240, 0x00 )
     epd.imagered.fill_rect(300, 240, 200, 240, 0xff)
 
-    arrow_up_icon = get_image_array("images/Arrow_up_new.bmp", 10, 11)
+    # Image rendering is upside down
+    arrow_down_icon = get_image_array("images/Arrow_up.bmp", 10, 11)
+    arrow_down_buf = framebuf.FrameBuffer(arrow_down_icon, 10, 11, framebuf.MONO_HLSB)
+    arrow_up_icon = get_image_array("images/Arrow_down.bmp", 10, 11)
     arrow_up_buf = framebuf.FrameBuffer(arrow_up_icon, 10, 11, framebuf.MONO_HLSB)
 
     sun_icon = get_image_array("images/Sun.bmp", 30, 30)
@@ -292,32 +295,60 @@ if __name__ == '__main__':
 
     rain_icon = get_image_array("images/Rain.bmp", 30, 30)
     rain_buf = framebuf.FrameBuffer(rain_icon, 30, 30, framebuf.MONO_HLSB)
-    epd.imageblack.blit(rain_buf, 300, 17)
+    epd.imageblack.blit(rain_buf, 285, 17)
 
     temperature_icon = get_image_array("images/Temperature.bmp", 30, 30)
     temperature_buf = framebuf.FrameBuffer(temperature_icon, 30, 30, framebuf.MONO_HLSB)
     epd.imageblack.blit(temperature_buf, 195, 17)
 
+    like_icon = get_image_array("images/Like.bmp", 25, 25)
+    like_buf = framebuf.FrameBuffer(like_icon, 25, 25, framebuf.MONO_HLSB)
+    epd.imagered.blit(like_buf, 330, 420)
+
+    dairy_icon = get_image_array("images/Dairy.bmp", 25, 25)
+    dairy_buf = framebuf.FrameBuffer(dairy_icon, 25, 25, framebuf.MONO_HLSB)
+    epd.imagered.blit(dairy_buf, 325, 450)
+
+    clock_icon = get_image_array("images/Clock.bmp", 25, 25)
+    clock_buf = framebuf.FrameBuffer(clock_icon, 25, 25, framebuf.MONO_HLSB)
+    epd.imagered.blit(clock_buf, 415, 420)
+
+    veggie_icon = get_image_array("images/Veggie.bmp", 25, 25)
+    veggie_buf = framebuf.FrameBuffer(veggie_icon, 25, 25, framebuf.MONO_HLSB)
+    epd.imagered.blit(veggie_buf, 415, 450)
+
 
     is_connected = connect_to_internet()
     if is_connected:
         cloud_function_resp = fetch_cloud_function_info()
-        print(cloud_function_resp)
+        weather_response = cloud_function_resp["Weather"]
+        recipe_response = cloud_function_resp["Recipe"]
 
-        # QR Code
-        #qr_bytes = bytearray(base64.b64decode(cloud_function_resp["qr_code"]))
-        # qr_code = framebuf.FrameBuffer(qr_bytes, 100, 100, framebuf.MONO_HLSB)
-        # epd.imagered.blit(qr_code, 350, 310)
-        # epd.imagered.text(cloud_function_resp["title"], 305, 260, 0x00)
+        # Recipe module with QR Code
+        qr_bytes = bytearray(base64.b64decode(recipe_response["qr_code"]))
+        qr_code = framebuf.FrameBuffer(qr_bytes, 125, 125, framebuf.MONO_HLSB)
+        epd.imagered.blit(qr_code, 335, 287)
+        if len(recipe_response["title"]) > 20:
+            epd.imagered.text(recipe_response["title"][:20], 320, 250, 0x00)
+            epd.imagered.text("{}...".format(recipe_response["title"][20:38]), 320, 265, 0x00)
+        else:
+            epd.imagered.text(recipe_response["title"], 320, 250, 0x00)
+
+
+        epd.imagered.text("{}".format(recipe_response["readyInMinutes"]), 445, 430, 0x00)
+        epd.imagered.text("{}".format(recipe_response["aggregateLikes"]), 360, 430, 0x00)
+        epd.imagered.text("{}".format(recipe_response["vegetarian"]), 445, 460, 0x00)
+        epd.imagered.text("{}".format(recipe_response["dairy"]), 355, 460, 0x00)
+
 
         # Weather
         # epd.imagered.text("Updated: {}".format(today_info["last_updated"]), 275, vertical_start, 0xff)
-        epd.imagered.text("{}".format(cloud_function_resp["location_name"]), 0,  0, 0xff)
-        epd.imageblack.text("{}".format(cloud_function_resp["location_country"]), 0, 15, 0x00)
+        epd.imagered.text("{},".format(weather_response["location_name"]), 0,  0, 0xff)
+        epd.imageblack.text("{}".format(weather_response["location_country"]), 0, 15, 0x00)
         # epd.imageblack.hline(240,  45, 300, 0x00)
 
         vertical_shift = 5
-        for forecast_day in cloud_function_resp["forecasts"]:
+        for forecast_day in weather_response["forecasts"]:
             date = forecast_day["date"]
             epd.imagered.text(date, 0, 43 + vertical_shift, 0xff)
             epd.imageblack.hline(0, 53 + vertical_shift, 90, 0x00)
@@ -327,7 +358,8 @@ if __name__ == '__main__':
             weather_icon = framebuf.FrameBuffer(weather_icon_bytearray, 40, 40, framebuf.MONO_HLSB)
             epd.imageblack.blit(weather_icon, 18, 55 + vertical_shift)
 
-            epd.imageblack.blit(arrow_up_buf, 95, 65 + vertical_shift)
+            epd.imageblack.blit(arrow_up_buf, 95, 62 + vertical_shift)
+            epd.imageblack.blit(arrow_down_buf, 95, 79 + vertical_shift)
 
             epd.imageblack.text("{}".format(forecast_day["sunrise"]), 110, 65 + vertical_shift, 0x00 )
             epd.imageblack.text("{}".format(forecast_day["sunset"]), 110, 80 + vertical_shift, 0x00 )
@@ -335,8 +367,8 @@ if __name__ == '__main__':
             epd.imageblack.text("Max:{}".format(forecast_day["maxtemp_c"]), 180, 65 + vertical_shift, 0x00 )
             epd.imageblack.text("Min:{}".format(forecast_day["mintemp_c"]), 180, 80 + vertical_shift, 0x00 )
 
-            epd.imageblack.text("Wind:{} kmH".format(forecast_day["maxwind_kph"]), 270, 65 + vertical_shift, 0x00)
-            epd.imageblack.text("Hum:{}%".format(forecast_day["avghumidity"]), 270, 80 + vertical_shift, 0x00)
+            epd.imageblack.text("Prob: {}%".format(forecast_day["daily_chance_of_rain"]), 270, 65 + vertical_shift, 0x00)
+            epd.imageblack.text("{} mm".format(forecast_day["totalprecip_mm"]), 270, 80 + vertical_shift, 0x00)
 
             vertical_shift += 67
 
