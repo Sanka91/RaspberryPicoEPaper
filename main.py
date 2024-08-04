@@ -8,9 +8,10 @@ import urequests
 import base64
 
 
+# Image rendering is upside down
+
 
 def connect_to_internet():
-
     ssid = "Phil1991"
     password = "Karibik1"
 
@@ -71,7 +72,6 @@ class EPD_7in5_B:
 
         # Init muss ganz am Ende stehen
         self.init()
-
 
     def digital_write(self, pin, value):
         pin.value(value)
@@ -266,6 +266,127 @@ def fetch_cloud_function_info():
         print("Exception occurred trying to call cloud function. Error code: {}".format(e))
 
 
+def create_weather_module(weather_response, start_pos_x=0, start_pos_y=0):
+    epd.imagered.text("{},".format(weather_response["location_name"]), start_pos_x, 0 + start_pos_y, 0xff)
+    epd.imageblack.text("{}".format(weather_response["location_country"]), start_pos_x, 15 + start_pos_y, 0x00)
+
+    # Static weather icons (Sun, Temperature Gauge, Rain)
+    sun_icon = get_image_array("images/Sun.bmp", 30, 30)
+    sun_buf = framebuf.FrameBuffer(sun_icon, 30, 30, framebuf.MONO_HLSB)
+    epd.imageblack.blit(sun_buf, 113 + start_pos_x, 17 + start_pos_y)
+
+    rain_icon = get_image_array("images/Rain.bmp", 30, 30)
+    rain_buf = framebuf.FrameBuffer(rain_icon, 30, 30, framebuf.MONO_HLSB)
+    epd.imageblack.blit(rain_buf, 285 + start_pos_x, 17 + start_pos_y)
+
+    temperature_icon = get_image_array("images/Temperature.bmp", 30, 30)
+    temperature_buf = framebuf.FrameBuffer(temperature_icon, 30, 30, framebuf.MONO_HLSB)
+    epd.imageblack.blit(temperature_buf, 195 + start_pos_x, 17 + start_pos_y)
+
+    # Dynamic weather icons (Arrow up, arrow down) - Blit in Loop
+    arrow_down_icon = get_image_array("images/Arrow_up.bmp", 10, 11)
+    arrow_down_buf = framebuf.FrameBuffer(arrow_down_icon, 10, 11, framebuf.MONO_HLSB)
+    arrow_up_icon = get_image_array("images/Arrow_down.bmp", 10, 11)
+    arrow_up_buf = framebuf.FrameBuffer(arrow_up_icon, 10, 11, framebuf.MONO_HLSB)
+
+    distance_forecasts = 0
+    for forecast_day in weather_response["forecasts"]:
+        date = forecast_day["date"]
+        epd.imagered.text(date, 0 + start_pos_x, 48 + start_pos_y + distance_forecasts, 0xff)
+        epd.imageblack.hline(0 + start_pos_x, 58 + start_pos_y + distance_forecasts, 90, 0x00)
+
+        weather_icon_bytes = forecast_day["icon"]
+        weather_icon_bytearray = bytearray(base64.b64decode(weather_icon_bytes))
+        weather_icon = framebuf.FrameBuffer(weather_icon_bytearray, 40, 40, framebuf.MONO_HLSB)
+        epd.imageblack.blit(weather_icon, 18 + start_pos_x, 60 + start_pos_y + distance_forecasts)
+
+        epd.imageblack.blit(arrow_up_buf, 95 + start_pos_x, 67 + start_pos_y + distance_forecasts)
+        epd.imageblack.blit(arrow_down_buf, 95 + start_pos_x, 85 + start_pos_y + distance_forecasts)
+
+        epd.imageblack.text("{}".format(forecast_day["sunrise"]), 110 + start_pos_x,
+                            70 + start_pos_y + distance_forecasts, 0x00)
+        epd.imageblack.text("{}".format(forecast_day["sunset"]), 110 + start_pos_x,
+                            85 + start_pos_y + distance_forecasts, 0x00)
+
+        epd.imageblack.text("Max:{}".format(forecast_day["maxtemp_c"]), 180 + start_pos_x,
+                            70 + start_pos_y + distance_forecasts, 0x00)
+        epd.imageblack.text("Min:{}".format(forecast_day["mintemp_c"]), 180 + start_pos_x,
+                            85 + start_pos_y + distance_forecasts, 0x00)
+
+        epd.imageblack.text("Prob: {}%".format(forecast_day["daily_chance_of_rain"]), 270 + start_pos_x,
+                            70 + start_pos_y + distance_forecasts, 0x00)
+        epd.imageblack.text("{} mm".format(forecast_day["totalprecip_mm"]), 270 + start_pos_x,
+                            85 + start_pos_y + distance_forecasts, 0x00)
+
+        distance_forecasts += 67
+
+
+# Recipe module with QR Code
+def create_recipe_module(recipe_response, start_pos_x=0, start_pos_y=0):
+    # QR Code image
+    qr_bytes = bytearray(base64.b64decode(recipe_response["qr_code"]))
+    qr_code = framebuf.FrameBuffer(qr_bytes, 125, 125, framebuf.MONO_HLSB)
+    epd.imagered.blit(qr_code, 21 + start_pos_x, 37 + start_pos_y)
+
+    # Recipe title
+    title_chunks = create_chunks_from_string(recipe_response["title"], chunk_size=20, max_chunks=2)
+    vertical_dist_title = 0
+    for chunk in title_chunks:
+        epd.imagered.text(chunk, start_pos_x, vertical_dist_title + start_pos_y, 0x00)
+        vertical_dist_title += 15
+
+    # Details
+    epd.imagered.text("{}".format(recipe_response["readyInMinutes"]), 128 + start_pos_x, 180 + start_pos_y, 0x00)
+    epd.imagered.text("{}".format(recipe_response["aggregateLikes"]), 43 + start_pos_x, 180 + start_pos_y, 0x00)
+    epd.imagered.text("{}".format(recipe_response["vegetarian"]), 128 + start_pos_x, 210 + start_pos_y, 0x00)
+    epd.imagered.text("{}".format(recipe_response["dairy"]), 38 + start_pos_x, 210 + start_pos_y, 0x00)
+
+    # Details icons
+    like_icon = get_image_array("images/Like.bmp", 25, 25)
+    like_buf = framebuf.FrameBuffer(like_icon, 25, 25, framebuf.MONO_HLSB)
+    epd.imagered.blit(like_buf, 13 + start_pos_x, 170 + start_pos_y)
+
+    dairy_icon = get_image_array("images/Dairy.bmp", 25, 25)
+    dairy_buf = framebuf.FrameBuffer(dairy_icon, 25, 25, framebuf.MONO_HLSB)
+    epd.imagered.blit(dairy_buf, 8 + start_pos_x, 200 + start_pos_y)
+
+    clock_icon = get_image_array("images/Clock.bmp", 25, 25)
+    clock_buf = framebuf.FrameBuffer(clock_icon, 25, 25, framebuf.MONO_HLSB)
+    epd.imagered.blit(clock_buf, 98 + start_pos_x, 170 + start_pos_y)
+
+    veggie_icon = get_image_array("images/Veggie.bmp", 25, 25)
+    veggie_buf = framebuf.FrameBuffer(veggie_icon, 25, 25, framebuf.MONO_HLSB)
+    epd.imagered.blit(veggie_buf, 98 + start_pos_x, 200 + start_pos_y)
+
+
+def create_riddle_module(riddle_response, start_pos_x=0, start_pos_y=0):
+
+    epd.imageblack.text("Riddle of the day", 530, 15)
+
+    riddle_chunks = create_chunks_from_string(riddle_response["riddle"], chunk_size= 45, max_chunks=5)
+
+    vertical_dist_riddle = 0
+    for chunk in riddle_chunks:
+        epd.imageblack.text(chunk, start_pos_x, vertical_dist_riddle + start_pos_y)
+        vertical_dist_riddle += 15
+
+    qr_bytes = bytearray(base64.b64decode(riddle_response["answer"]))
+    qr_code = framebuf.FrameBuffer(qr_bytes, 100, 100, framebuf.MONO_HLSB)
+    epd.imageblack.blit(qr_code, 110 + start_pos_x, 65 + start_pos_y)
+
+
+def create_chunks_from_string(string, chunk_size=20, max_chunks=2):
+    all_chunks = []
+
+    for i in range(0, len(string), chunk_size):
+        all_chunks.append(string[i:i + chunk_size])
+
+    if len(all_chunks) > max_chunks:
+        new_chunks = all_chunks[:max_chunks]
+        new_chunks[-1] = new_chunks[-1] + "..."
+        return new_chunks
+    else:
+        return all_chunks
 
 
 if __name__ == '__main__':
@@ -278,133 +399,52 @@ if __name__ == '__main__':
     # Horizontal Lines
     epd.imageblack.hline(0, 240, 800, 0x00)
 
-    # # Colored, filled, rectangles
-    # epd.imageblack.fill_rect(400, 0, 200, 240, 0x00 )
-    # epd.imageblack.fill_rect(0, 0, 200, 240, 0x00 )
+    # Colored, filled, rectangles
     epd.imagered.fill_rect(300, 240, 200, 240, 0xff)
-
-    # Image rendering is upside down
-    arrow_down_icon = get_image_array("images/Arrow_up.bmp", 10, 11)
-    arrow_down_buf = framebuf.FrameBuffer(arrow_down_icon, 10, 11, framebuf.MONO_HLSB)
-    arrow_up_icon = get_image_array("images/Arrow_down.bmp", 10, 11)
-    arrow_up_buf = framebuf.FrameBuffer(arrow_up_icon, 10, 11, framebuf.MONO_HLSB)
-
-    sun_icon = get_image_array("images/Sun.bmp", 30, 30)
-    sun_buf = framebuf.FrameBuffer(sun_icon, 30, 30, framebuf.MONO_HLSB)
-    epd.imageblack.blit(sun_buf, 113, 17)
-
-    rain_icon = get_image_array("images/Rain.bmp", 30, 30)
-    rain_buf = framebuf.FrameBuffer(rain_icon, 30, 30, framebuf.MONO_HLSB)
-    epd.imageblack.blit(rain_buf, 285, 17)
-
-    temperature_icon = get_image_array("images/Temperature.bmp", 30, 30)
-    temperature_buf = framebuf.FrameBuffer(temperature_icon, 30, 30, framebuf.MONO_HLSB)
-    epd.imageblack.blit(temperature_buf, 195, 17)
-
-    like_icon = get_image_array("images/Like.bmp", 25, 25)
-    like_buf = framebuf.FrameBuffer(like_icon, 25, 25, framebuf.MONO_HLSB)
-    epd.imagered.blit(like_buf, 330, 420)
-
-    dairy_icon = get_image_array("images/Dairy.bmp", 25, 25)
-    dairy_buf = framebuf.FrameBuffer(dairy_icon, 25, 25, framebuf.MONO_HLSB)
-    epd.imagered.blit(dairy_buf, 325, 450)
-
-    clock_icon = get_image_array("images/Clock.bmp", 25, 25)
-    clock_buf = framebuf.FrameBuffer(clock_icon, 25, 25, framebuf.MONO_HLSB)
-    epd.imagered.blit(clock_buf, 415, 420)
-
-    veggie_icon = get_image_array("images/Veggie.bmp", 25, 25)
-    veggie_buf = framebuf.FrameBuffer(veggie_icon, 25, 25, framebuf.MONO_HLSB)
-    epd.imagered.blit(veggie_buf, 415, 450)
-
+    epd.imageblack.fill_rect(400, 0, 400, 240, 0x00)
 
     is_connected = connect_to_internet()
     if is_connected:
         cloud_function_resp = fetch_cloud_function_info()
+        print(cloud_function_resp)
         weather_response = cloud_function_resp["Weather"]
         recipe_response = cloud_function_resp["Recipe"]
+        riddle_response = cloud_function_resp["Riddle"]
 
-        # Recipe module with QR Code
-        qr_bytes = bytearray(base64.b64decode(recipe_response["qr_code"]))
-        qr_code = framebuf.FrameBuffer(qr_bytes, 125, 125, framebuf.MONO_HLSB)
-        epd.imagered.blit(qr_code, 335, 287)
-        if len(recipe_response["title"]) > 20:
-            epd.imagered.text(recipe_response["title"][:20], 320, 250, 0x00)
-            epd.imagered.text("{}...".format(recipe_response["title"][20:38]), 320, 265, 0x00)
-        else:
-            epd.imagered.text(recipe_response["title"], 320, 250, 0x00)
-
-
-        epd.imagered.text("{}".format(recipe_response["readyInMinutes"]), 445, 430, 0x00)
-        epd.imagered.text("{}".format(recipe_response["aggregateLikes"]), 360, 430, 0x00)
-        epd.imagered.text("{}".format(recipe_response["vegetarian"]), 445, 460, 0x00)
-        epd.imagered.text("{}".format(recipe_response["dairy"]), 355, 460, 0x00)
-
-
-        # Weather
-        # epd.imagered.text("Updated: {}".format(today_info["last_updated"]), 275, vertical_start, 0xff)
-        epd.imagered.text("{},".format(weather_response["location_name"]), 0,  0, 0xff)
-        epd.imageblack.text("{}".format(weather_response["location_country"]), 0, 15, 0x00)
-        # epd.imageblack.hline(240,  45, 300, 0x00)
-
-        vertical_shift = 5
-        for forecast_day in weather_response["forecasts"]:
-            date = forecast_day["date"]
-            epd.imagered.text(date, 0, 43 + vertical_shift, 0xff)
-            epd.imageblack.hline(0, 53 + vertical_shift, 90, 0x00)
-
-            weather_icon_bytes = forecast_day["icon"]
-            weather_icon_bytearray = bytearray(base64.b64decode(weather_icon_bytes))
-            weather_icon = framebuf.FrameBuffer(weather_icon_bytearray, 40, 40, framebuf.MONO_HLSB)
-            epd.imageblack.blit(weather_icon, 18, 55 + vertical_shift)
-
-            epd.imageblack.blit(arrow_up_buf, 95, 62 + vertical_shift)
-            epd.imageblack.blit(arrow_down_buf, 95, 79 + vertical_shift)
-
-            epd.imageblack.text("{}".format(forecast_day["sunrise"]), 110, 65 + vertical_shift, 0x00 )
-            epd.imageblack.text("{}".format(forecast_day["sunset"]), 110, 80 + vertical_shift, 0x00 )
-
-            epd.imageblack.text("Max:{}".format(forecast_day["maxtemp_c"]), 180, 65 + vertical_shift, 0x00 )
-            epd.imageblack.text("Min:{}".format(forecast_day["mintemp_c"]), 180, 80 + vertical_shift, 0x00 )
-
-            epd.imageblack.text("Prob: {}%".format(forecast_day["daily_chance_of_rain"]), 270, 65 + vertical_shift, 0x00)
-            epd.imageblack.text("{} mm".format(forecast_day["totalprecip_mm"]), 270, 80 + vertical_shift, 0x00)
-
-            vertical_shift += 67
-
+        create_recipe_module(recipe_response=recipe_response, start_pos_x=317, start_pos_y=250)
+        create_weather_module(weather_response=weather_response, start_pos_x=0, start_pos_y=0)
+        create_riddle_module(riddle_response=riddle_response, start_pos_x=425, start_pos_y=50)
 
     epd.display()
 
+# while True:
+#
+#     # epd.ufo_sprite.fill_rect(70, 300, 50, 80, 0xff)
+#     # epd.screen_buffer.blit(epd.ufo_sprite, 50, 50)
 
-    # while True:
-    #
-    #     # epd.ufo_sprite.fill_rect(70, 300, 50, 80, 0xff)
-    #     # epd.screen_buffer.blit(epd.ufo_sprite, 50, 50)
+#     epd.imageblack.fill(0xff)
+#     # epd.imagered.fill(0x00)
+#
+#     epd.imageblack.blit(epd.ufo_sprite, 350, 290)
+#     # epd.imagered.blit(epd.ufo_sprite, 100, 200)
+#
+#     epd.imageblack.text("Waveshare", 5, 10, 0x00)
+#     epd.imagered.text("Testpaper", 5, 40, 0xff)
+#     epd.imageblack.text("Raspberry Pico", 5, 70, 0x00)
+#
 
-    #     epd.imageblack.fill(0xff)
-    #     # epd.imagered.fill(0x00)
-    #
-    #     epd.imageblack.blit(epd.ufo_sprite, 350, 290)
-    #     # epd.imagered.blit(epd.ufo_sprite, 100, 200)
-    #
-    #     epd.imageblack.text("Waveshare", 5, 10, 0x00)
-    #     epd.imagered.text("Testpaper", 5, 40, 0xff)
-    #     epd.imageblack.text("Raspberry Pico", 5, 70, 0x00)
-    #
+# epd.imageblack.vline(10, 90, 60, 0x00)
 
-        # epd.imageblack.vline(10, 90, 60, 0x00)
-
-    #
-    #
-    #     # epd.imageblack.rect(400, 180, 50, 80, 0x00)
-    #     # epd.imageblack.fill_rect(70, 180, 50, 80, 0x00)
-    #     # epd.imagered.rect(400, 300, 50, 80, 0xff)
-    #     # epd.imagered.fill_rect(70, 300, 50, 80, 0xff)
-    #     epd.display()
-    #     epd.delay_ms(500)
-    #
-    #     # epd.Clear()
-    #     # epd.delay_ms(2000)
-    #     print("sleep")
-    #     # epd.sleep()
-
+#
+#
+#     # epd.imageblack.rect(400, 180, 50, 80, 0x00)
+#     # epd.imageblack.fill_rect(70, 180, 50, 80, 0x00)
+#     # epd.imagered.rect(400, 300, 50, 80, 0xff)
+#     # epd.imagered.fill_rect(70, 300, 50, 80, 0xff)
+#     epd.display()
+#     epd.delay_ms(500)
+#
+#     # epd.Clear()
+#     # epd.delay_ms(2000)
+#     print("sleep")
+#     # epd.sleep()
