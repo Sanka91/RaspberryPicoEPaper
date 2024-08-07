@@ -321,6 +321,25 @@ def create_weather_module(weather_response, start_pos_x=0, start_pos_y=0):
         distance_forecasts += 67
 
 
+def create_trivia_module(trivia_response, start_pos_x=0, start_pos_y=0):
+    epd.imageblack.text(trivia_response["category"], start_pos_x + 140, start_pos_y, 0x00)
+    trivia_chunks = create_chunks_from_string(trivia_response["question"], chunk_size= 40, max_chunks=3)
+
+    vertical_dist_chunks = 0
+    for chunk in trivia_chunks:
+        epd.imageblack.text(chunk, start_pos_x, vertical_dist_chunks + start_pos_y + 35, 0x00)
+        vertical_dist_chunks += 15
+
+    vertical_distance = 0
+    for answer in trivia_response["answer_options"]:
+        epd.imageblack.text("{}.)  {}".format( trivia_response["answer_options"].index(answer) + 1, answer), start_pos_x + 10, start_pos_y + vertical_distance + 100, 0x00)
+        vertical_distance += 20
+
+    qr_bytes = bytearray(base64.b64decode(trivia_response["qr_code"]))
+    qr_code = framebuf.FrameBuffer(qr_bytes, 100, 100, framebuf.MONO_HLSB)
+    epd.imageblack.blit(qr_code, start_pos_x + 275, start_pos_y + 100)
+
+
 # Recipe module with QR Code
 def create_recipe_module(recipe_response, start_pos_x=0, start_pos_y=0):
     # QR Code image
@@ -361,9 +380,7 @@ def create_recipe_module(recipe_response, start_pos_x=0, start_pos_y=0):
 
 def create_riddle_module(riddle_response, start_pos_x=0, start_pos_y=0):
 
-    epd.imageblack.text("Riddle of the day", 530, 15)
-
-    riddle_chunks = create_chunks_from_string(riddle_response["riddle"], chunk_size= 45, max_chunks=5)
+    riddle_chunks = create_chunks_from_string(riddle_response["riddle"], chunk_size= 20, max_chunks=6)
 
     vertical_dist_riddle = 0
     for chunk in riddle_chunks:
@@ -372,7 +389,7 @@ def create_riddle_module(riddle_response, start_pos_x=0, start_pos_y=0):
 
     qr_bytes = bytearray(base64.b64decode(riddle_response["answer"]))
     qr_code = framebuf.FrameBuffer(qr_bytes, 100, 100, framebuf.MONO_HLSB)
-    epd.imageblack.blit(qr_code, 110 + start_pos_x, 65 + start_pos_y)
+    epd.imageblack.blit(qr_code, 40 + start_pos_x, 95 + start_pos_y)
 
 
 def create_chunks_from_string(string, chunk_size=20, max_chunks=2):
@@ -400,20 +417,22 @@ if __name__ == '__main__':
     epd.imageblack.hline(0, 240, 800, 0x00)
 
     # Colored, filled, rectangles
-    epd.imagered.fill_rect(300, 240, 200, 240, 0xff)
-    epd.imageblack.fill_rect(400, 0, 400, 240, 0x00)
+    epd.imagered.fill_rect(0, 240, 200, 240, 0xff)
+    epd.imageblack.fill_rect(600, 240, 200, 240, 0x00)
 
     is_connected = connect_to_internet()
     if is_connected:
         cloud_function_resp = fetch_cloud_function_info()
         print(cloud_function_resp)
         weather_response = cloud_function_resp["Weather"]
-        recipe_response = cloud_function_resp["Recipe"]
+        trivia_response = cloud_function_resp["Trivia"]
+        #recipe_response = cloud_function_resp["Recipe"]
         riddle_response = cloud_function_resp["Riddle"]
 
-        create_recipe_module(recipe_response=recipe_response, start_pos_x=317, start_pos_y=250)
+        #create_recipe_module(recipe_response=recipe_response, start_pos_x=5, start_pos_y=250)
+        create_trivia_module(trivia_response=trivia_response, start_pos_x=400, start_pos_y=15)
         create_weather_module(weather_response=weather_response, start_pos_x=0, start_pos_y=0)
-        create_riddle_module(riddle_response=riddle_response, start_pos_x=425, start_pos_y=50)
+        create_riddle_module(riddle_response=riddle_response, start_pos_x=610, start_pos_y=250)
 
     epd.display()
 
